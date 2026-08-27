@@ -3,6 +3,8 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.IO;
 using System.Text;
+using System.Net.Http;
+using System.Collections.Generic;
 using Microsoft.Win32;
 
 namespace AttendanceTracker
@@ -38,24 +40,22 @@ namespace AttendanceTracker
         private NotifyIcon trayIcon;
         private string logDirectory = @"C:\Attendance";
         private string employeeName = "";
+
+        // 구글 폼 연동 설정 키
+        public string googleFormId = "";
+        public string entryNameId = "";
+        public string entryActionId = "";
+        public string entryComputerId = "";
+
         private const string RegistryKeyPath = @"Software\AttendanceTracker";
         private const string StartupKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string AppName = "AttendanceTracker";
 
         public AttendanceAppContext()
         {
-            // 숨겨진 빈 폼을 MainForm으로 지정하여 트레이 앱 프로세스가 즉시 종료되지 않고 상주하도록 보장
-            Form hiddenForm = new Form();
-            hiddenForm.Opacity = 0;
-            hiddenForm.ShowInTaskbar = false;
-            hiddenForm.FormBorderStyle = FormBorderStyle.None;
-            hiddenForm.Size = new Size(0, 0);
-            hiddenForm.WindowState = FormWindowState.Minimized;
-            this.MainForm = hiddenForm;
-
             LoadSettings();
 
-            // 1. 앱 구동 시 즉시 자동으로 "출근" 이벤트 기록
+            // 1. 앱 구동 시 즉시 자동으로 "출근" 이벤트 기록 (로컬 및 구글)
             RecordAttendance("출근");
 
             // 2. 트레이 아이콘 및 컨텍스트 메뉴 초기화
@@ -77,12 +77,7 @@ namespace AttendanceTracker
             }
             catch (Exception ex)
             {
-                // 트레이 아이콘 생성 실패 시 (예: 비대화형 세션 0 구동 시) 로그에 남김
-                try
-                {
-                    File.AppendAllText(@"C:\Attendance\tracker_error.log", string.Format("[{0}] 트레이 생성 실패 (비대화형 세션일 수 있음): {1}\r\n", DateTime.Now, ex.Message));
-                }
-                catch {}
+                LogToFile(string.Format("트레이 생성 실패: {0}", ex.Message));
             }
 
             // 3. 컴퓨터 종료 및 로그아웃 이벤트 구독 (.NET SystemEvents)
@@ -99,10 +94,16 @@ namespace AttendanceTracker
                     {
                         logDirectory = key.GetValue("SaveDirectory", @"C:\Attendance").ToString();
                         employeeName = key.GetValue("EmployeeName", Environment.UserName).ToString();
+                        
+                        // 구글 폼 셋업 로드
+                        googleFormId = key.GetValue("GoogleFormId", "").ToString();
+                        entryNameId = key.GetValue("EntryNameId", "").ToString();
+                        entryActionId = key.GetValue("EntryActionId", "").ToString();
+                        entryComputerId = key.GetValue("EntryComputerId", "").ToString();
                     }
                     else
                     {
-                        employeeName = Environment.UserName; // 지정하지 않았을 때의 기본값
+                        employeeName = Environment.UserName;
                     }
                 }
             }
@@ -112,7 +113,24 @@ namespace AttendanceTracker
             }
         }
 
-        public void RecordAttendance(string action)
+        public async void RecordAttendance(string action)
+        {
+            string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            // 1. 로컬 CSV 파일에 쓰기 (오프라인 상태 대비 백업)
+            RecordToLocalCsv(timeStr, action);
+
+            // 2. 구글 스프레드시트(구글 폼)에 실시간 비동기 전송 (인터넷 연결 상태인 경우)
+            if (!string.IsNullOrEmpty(googleFormId) &&
+                !string.IsNullOrEmpty(entryNameId) &&
+                !string.IsNullOrEmpty(entryActionId) &&
+                !string.IsNullOrEmpty(entryComputerId))
+            {
+                await SendToGoogleFormAsync(action);
+            }
+        }
+
+        private void RecordToLocalCsv(string timeStr, string action)
         {
             try
             {
@@ -124,45 +142,88 @@ namespace AttendanceTracker
                 string logFilePath = Path.Combine(logDirectory, "attendance_log.csv");
                 bool isNew = !File.Exists(logFilePath);
 
-                // UTF-8 BOM 인코딩을 명시하여 Microsoft Excel에서 한글 깨짐 없이 바로 열리도록 설정
                 using (StreamWriter writer = new StreamWriter(logFilePath, true, Encoding.UTF8))
                 {
                     if (isNew)
                     {
                         writer.WriteLine("DateTime,Action,EmployeeName,ComputerName");
                     }
-                    string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     writer.WriteLine(string.Format("{0},{1},{2},{3}", timeStr, action, employeeName, Environment.MachineName));
                 }
             }
             catch (Exception ex)
             {
-                // 로컬 기록 오류 발생 시 비상용 텍스트 파일 저장 시도
-                try
-                {
-                    File.AppendAllText(@"C:\Attendance\tracker_error.log", string.Format("[{0}] 기록 실패: {1}\r\n", DateTime.Now, ex.Message));
-                }
-                catch {}
+                LogToFile(string.Format("로컬 저장 실패: {0}", ex.Message));
             }
+        }
+
+        private async System.Threading.Tasks.Task SendToGoogleFormAsync(string action)
+        {
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    // 네트워크 타임아웃 8초 설정 (윈도우 프리징 현상 방지)
+                    client.Timeout = TimeSpan.FromSeconds(8);
+
+                    var postData = new Dictionary<string, string>();
+                    postData.Add(entryNameId, employeeName);
+                    postData.Add(entryActionId, action);
+                    postData.Add(entryComputerId, Environment.MachineName);
+
+                    var content = new FormUrlEncodedContent(postData);
+                    string url = string.Format("https://docs.google.com/forms/d/e/{0}/formResponse", googleFormId);
+
+                    HttpResponseMessage response = await client.PostAsync(url, content);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        LogToFile("구글 스프레드시트 실시간 전송 완료");
+                    }
+                    else
+                    {
+                        LogToFile(string.Format("구글 전송 실패 (서버 응답 오류): {0}", response.StatusCode));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogToFile(string.Format("구글 전송 실패 (오프라인 또는 차단): {0}", ex.Message));
+            }
+        }
+
+        private void LogToFile(string message)
+        {
+            try
+            {
+                if (!Directory.Exists(@"C:\Attendance"))
+                {
+                    Directory.CreateDirectory(@"C:\Attendance");
+                }
+                File.AppendAllText(@"C:\Attendance\tracker_error.log", string.Format("[{0}] {1}\r\n", DateTime.Now, message));
+            }
+            catch {}
         }
 
         private void OnSessionEnding(object sender, SessionEndingEventArgs e)
         {
-            // 컴퓨터 종료 또는 로그아웃 시 "퇴근" 처리 실행
+            // 컴퓨터 종료/로그아웃 시 "퇴근" 처리
             RecordAttendance("퇴근");
         }
 
         private void ShowSettingsForm(object sender, EventArgs e)
         {
-            // 설정 창 띄우기
             FormSettings form = new FormSettings(logDirectory, employeeName, IsStartupEnabled(), this);
             form.ShowDialog();
         }
 
-        public void UpdateSettings(string newDir, string newName, bool enableStartup)
+        public void UpdateSettings(string newDir, string newName, bool enableStartup, string gFormId, string eNameId, string eActionId, string eCompId)
         {
             this.logDirectory = newDir;
             this.employeeName = newName;
+            this.googleFormId = gFormId;
+            this.entryNameId = eNameId;
+            this.entryActionId = eActionId;
+            this.entryComputerId = eCompId;
 
             try
             {
@@ -171,6 +232,10 @@ namespace AttendanceTracker
                 {
                     key.SetValue("SaveDirectory", newDir);
                     key.SetValue("EmployeeName", newName);
+                    key.SetValue("GoogleFormId", gFormId);
+                    key.SetValue("EntryNameId", eNameId);
+                    key.SetValue("EntryActionId", eActionId);
+                    key.SetValue("EntryComputerId", eCompId);
                 }
 
                 // 윈도우 시작프로그램(Run) 설정 저장/삭제
@@ -213,8 +278,7 @@ namespace AttendanceTracker
 
         private void Exit(object sender, EventArgs e)
         {
-            // 사용자가 수동으로 앱을 우클릭하여 종료할 때
-            if (trayIcon != null) { trayIcon.Visible = false; }
+            trayIcon.Visible = false;
             SystemEvents.SessionEnding -= OnSessionEnding;
             if (this.MainForm != null) { this.MainForm.Close(); }
             Application.Exit();
@@ -226,6 +290,13 @@ namespace AttendanceTracker
         private TextBox txtDir;
         private TextBox txtName;
         private CheckBox chkStartup;
+        
+        // 구글 폼 입력 컨트롤
+        private TextBox txtFormId;
+        private TextBox txtEntryName;
+        private TextBox txtEntryAction;
+        private TextBox txtEntryComputer;
+
         private DataGridView dgvLogs;
         private AttendanceAppContext context;
         private string logDirectory;
@@ -235,22 +306,24 @@ namespace AttendanceTracker
             this.context = ctx;
             this.logDirectory = currentDir;
 
-            // Form 기본 디자인 속성 설정
+            // Form 디자인 설정 (구글 연동을 추가하기 위해 창의 세로 크기를 650으로 확장)
             this.Text = "출퇴근 자동 체크기 설정";
-            this.Size = new Size(520, 480);
+            this.Size = new Size(540, 660);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
 
-            // 컨트롤들 배치
-            Label lblName = new Label() { Text = "사원 이름:", Location = new Point(20, 20), Size = new Size(90, 20) };
-            txtName = new TextBox() { Text = currentName, Location = new Point(120, 18), Size = new Size(180, 20) };
+            // 1. 기본 설정 그룹박스
+            GroupBox gbBasic = new GroupBox() { Text = "기본 설정", Location = new Point(15, 10), Size = new Size(495, 135) };
+            
+            Label lblName = new Label() { Text = "사원 이름:", Location = new Point(15, 25), Size = new Size(95, 20) };
+            txtName = new TextBox() { Text = currentName, Location = new Point(120, 22), Size = new Size(180, 20) };
 
-            Label lblDir = new Label() { Text = "기록 저장 폴더:", Location = new Point(20, 50), Size = new Size(90, 20) };
-            txtDir = new TextBox() { Text = currentDir, Location = new Point(120, 48), Size = new Size(250, 20) };
+            Label lblDir = new Label() { Text = "기록 저장 폴더:", Location = new Point(15, 55), Size = new Size(95, 20) };
+            txtDir = new TextBox() { Text = currentDir, Location = new Point(120, 53), Size = new Size(240, 20) };
 
-            Button btnBrowse = new Button() { Text = "찾아보기...", Location = new Point(380, 46), Size = new Size(90, 23) };
+            Button btnBrowse = new Button() { Text = "찾아보기...", Location = new Point(370, 51), Size = new Size(110, 23) };
             btnBrowse.Click += (s, e) =>
             {
                 using (FolderBrowserDialog fbd = new FolderBrowserDialog())
@@ -263,23 +336,49 @@ namespace AttendanceTracker
                 }
             };
 
-            chkStartup = new CheckBox() { Text = "윈도우 켤 때 자동으로 앱 실행 (출퇴근 감지)", Checked = startupEnabled, Location = new Point(120, 80), Size = new Size(300, 20) };
+            chkStartup = new CheckBox() { Text = "윈도우 켤 때 자동으로 앱 실행 (출퇴근 감지)", Checked = startupEnabled, Location = new Point(120, 85), Size = new Size(350, 20) };
+            gbBasic.Controls.AddRange(new Control[] { lblName, txtName, lblDir, txtDir, btnBrowse, chkStartup });
 
-            Button btnSave = new Button() { Text = "설정 저장", Location = new Point(120, 110), Size = new Size(100, 30) };
+            // 2. 구글 스프레드시트 실시간 연동 그룹박스 (선택사항)
+            GroupBox gbGoogle = new GroupBox() { Text = "구글 스프레드시트 실시간 연동 (선택사항)", Location = new Point(15, 155), Size = new Size(495, 155) };
+            
+            Label lblFormId = new Label() { Text = "구글 폼 ID:", Location = new Point(15, 25), Size = new Size(95, 20) };
+            txtFormId = new TextBox() { Text = context.googleFormId, Location = new Point(120, 22), Size = new Size(355, 20) };
+
+            Label lblEntryName = new Label() { Text = "사원명 Entry:", Location = new Point(15, 55), Size = new Size(95, 20) };
+            txtEntryName = new TextBox() { Text = context.entryNameId, Location = new Point(120, 52), Size = new Size(110, 20) };
+
+            Label lblEntryAction = new Label() { Text = "구분 Entry:", Location = new Point(245, 55), Size = new Size(90, 20) };
+            txtEntryAction = new TextBox() { Text = context.entryActionId, Location = new Point(345, 52), Size = new Size(130, 20) };
+
+            Label lblEntryComputer = new Label() { Text = "PC명 Entry:", Location = new Point(15, 85), Size = new Size(95, 20) };
+            txtEntryComputer = new TextBox() { Text = context.entryComputerId, Location = new Point(120, 82), Size = new Size(110, 20) };
+
+            Label lblHint = new Label() { 
+                Text = "* 구글 폼 ID와 각 entry ID를 모두 채워두면 실시간 웹 전송이 작동합니다.", 
+                ForeColor = Color.DimGray, 
+                Location = new Point(15, 115), 
+                Size = new Size(460, 30) 
+            };
+
+            gbGoogle.Controls.AddRange(new Control[] { lblFormId, txtFormId, lblEntryName, txtEntryName, lblEntryAction, txtEntryAction, lblEntryComputer, txtEntryComputer, lblHint });
+
+            // 3. 설정 저장 버튼
+            Button btnSave = new Button() { Text = "설정 저장", Location = new Point(210, 320), Size = new Size(120, 35), Font = new Font(this.Font, FontStyle.Bold) };
             btnSave.Click += (s, e) =>
             {
-                context.UpdateSettings(txtDir.Text, txtName.Text, chkStartup.Checked);
+                context.UpdateSettings(txtDir.Text, txtName.Text, chkStartup.Checked, txtFormId.Text, txtEntryName.Text, txtEntryAction.Text, txtEntryComputer.Text);
                 this.logDirectory = txtDir.Text;
                 LoadLogGrid();
                 MessageBox.Show("설정이 정상적으로 저장되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
 
-            // 로그 미리보기 테이블 디자인
-            Label lblLog = new Label() { Text = "최근 출퇴근 기록 리스트 (최근 100건):", Location = new Point(20, 160), Size = new Size(300, 20) };
+            // 4. 로그 리스트 영역
+            Label lblLog = new Label() { Text = "최근 출퇴근 기록 리스트 (최근 100건):", Location = new Point(15, 370), Size = new Size(300, 20) };
             dgvLogs = new DataGridView()
             {
-                Location = new Point(20, 185),
-                Size = new Size(460, 220),
+                Location = new Point(15, 395),
+                Size = new Size(495, 210),
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
@@ -289,7 +388,7 @@ namespace AttendanceTracker
                 BorderStyle = BorderStyle.Fixed3D
             };
 
-            this.Controls.AddRange(new Control[] { lblName, txtName, lblDir, txtDir, btnBrowse, chkStartup, btnSave, lblLog, dgvLogs });
+            this.Controls.AddRange(new Control[] { gbBasic, gbGoogle, btnSave, lblLog, dgvLogs });
 
             LoadLogGrid();
         }
@@ -307,11 +406,8 @@ namespace AttendanceTracker
             {
                 try
                 {
-                    // UTF-8로 저장된 CSV 한 줄씩 읽기
                     string[] lines = File.ReadAllLines(logFilePath, Encoding.UTF8);
                     int count = 0;
-                    
-                    // 역순(최신 기록 우선)으로 그리드에 행 추가
                     for (int i = lines.Length - 1; i >= 1; i--)
                     {
                         if (string.IsNullOrWhiteSpace(lines[i])) continue;
@@ -320,7 +416,7 @@ namespace AttendanceTracker
                         {
                             dgvLogs.Rows.Add(parts[0], parts[1], parts[2], parts[3]);
                             count++;
-                            if (count >= 100) break; // 최대 100건 표시 제한
+                            if (count >= 100) break;
                         }
                     }
                 }

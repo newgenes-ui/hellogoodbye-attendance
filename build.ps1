@@ -21,8 +21,9 @@ Write-Host "C# 컴파일러를 사용하여 데스크톱 어플(AttendanceTracke
 # 컴파일 실행:
 # -target:winexe는 콘솔창이 뜨지 않고 GUI로만 구동되게 만드는 옵션입니다.
 # -win32icon은 실행 파일(.exe)에 적용할 리소스 아이콘 파일을 지정합니다.
+# -reference:System.Net.Http.dll은 HttpClient를 사용한 웹 전송을 위해 참조를 추가하는 설정입니다.
 $iconPath = Join-Path $PSScriptRoot "app.ico"
-& $cscPath /target:winexe /win32icon:"$iconPath" /out:"$outputExe" "$sourceFile"
+& $cscPath /target:winexe /win32icon:"$iconPath" /reference:System.Net.Http.dll /out:"$outputExe" "$sourceFile"
 
 if ($LASTEXITCODE -eq 0 -and (Test-Path $outputExe)) {
     Write-Host "`n[성공] 어플리케이션 빌드가 성공적으로 완료되었습니다!" -ForegroundColor Green
