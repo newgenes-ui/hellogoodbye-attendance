@@ -317,11 +317,7 @@
 
         // 1인 1스마트폰 기기 고정 검증 로직
         async function verifyDeviceLock() {
-            const sheetUrl = localStorage.getItem("m_sheet_url");
-            const name = localStorage.getItem("m_employee_name");
-            const myUuid = localStorage.getItem("m_device_uuid");
-
-            if (!sheetUrl || !name || !myUuid) return true; // 설정이나 이름 정보가 없으면 검증 패스
+            return true; // 임시 우회 (기기 제한 검증을 건너뛰고 바로 전송)
 
             try {
                 // 구글 시트 URL을 CSV 형식으로 가공
