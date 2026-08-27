@@ -53,6 +53,39 @@
                 </button>
             </div>
             <div id="connectionStatus" class="mt-3 text-xs text-gray-500"></div>
+
+            <!-- 모바일 출퇴근 링크 생성 설정 (선택사항) -->
+            <div class="mt-5 border-t border-gray-150 pt-4">
+                <h3 class="text-sm font-semibold text-gray-800 mb-2"><i class="fa-solid fa-mobile-screen-button text-blue-600 mr-1"></i> 현장 직원 모바일 출퇴근 링크 생성 (선택사항)</h3>
+                <p class="text-xs text-gray-400 mb-3">직원용 모바일 단축 아이콘 링크를 생성하려면 PC 앱에 입력했던 구글 폼 정보를 동일하게 입력하세요.</p>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">구글 폼 ID</label>
+                        <input type="text" id="gFormId" placeholder="1FAIpQLSf..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">사원명 Entry ID</label>
+                        <input type="text" id="eNameId" placeholder="entry.123456..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">구분 Entry ID</label>
+                        <input type="text" id="eActionId" placeholder="entry.789012..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">PC명 Entry ID</label>
+                        <input type="text" id="eCompId" placeholder="entry.345678..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveFormSettings()" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition">
+                        설정 저장
+                    </button>
+                    <button onclick="copyMobileLink()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition flex items-center space-x-1">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>직원용 모바일 출퇴근 링크 복사</span>
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- 2. 통계 지표 카드 영역 -->
@@ -103,9 +136,13 @@
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">구분</label>
                         <select id="filterAction" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="전체">전체</option>
-                            <option value="출근">출근</option>
-                            <option value="퇴근">퇴근</option>
+                            <option value="전체">전체 구분</option>
+                            <option value="출근_전체">출근 (전체)</option>
+                            <option value="일반출근">일반출근 (PC)</option>
+                            <option value="현장출근">현장출근 (모바일)</option>
+                            <option value="퇴근_전체">퇴근 (전체)</option>
+                            <option value="일반퇴근">일반퇴근 (PC)</option>
+                            <option value="현장퇴근">현장퇴근 (모바일)</option>
                         </select>
                     </div>
                     <!-- 날짜 필터 방식 -->
@@ -177,14 +214,60 @@
         let attendanceLogs = [];
         let filteredLogs = [];
 
-        // 앱 시작 시 저장된 구글 시트 주소 로드
+        // 앱 시작 시 저장된 설정 로드
         window.onload = function() {
             const savedUrl = localStorage.getItem("attendance_sheet_url");
             if (savedUrl) {
                 document.getElementById("sheetUrl").value = savedUrl;
                 fetchData();
             }
+
+            // 모바일 구글 폼 설정값 복원
+            document.getElementById("gFormId").value = localStorage.getItem("attendance_g_form_id") || "";
+            document.getElementById("eNameId").value = localStorage.getItem("attendance_e_name_id") || "";
+            document.getElementById("eActionId").value = localStorage.getItem("attendance_e_action_id") || "";
+            document.getElementById("eCompId").value = localStorage.getItem("attendance_e_comp_id") || "";
         };
+
+        // 모바일 구글 폼 설정값 로컬 저장
+        function saveFormSettings() {
+            const gFormId = document.getElementById("gFormId").value.trim();
+            const eNameId = document.getElementById("eNameId").value.trim();
+            const eActionId = document.getElementById("eActionId").value.trim();
+            const eCompId = document.getElementById("eCompId").value.trim();
+
+            localStorage.setItem("attendance_g_form_id", gFormId);
+            localStorage.setItem("attendance_e_name_id", eNameId);
+            localStorage.setItem("attendance_e_action_id", eActionId);
+            localStorage.setItem("attendance_e_comp_id", eCompId);
+
+            alert("구글 폼 설정이 로컬 브라우저에 저장되었습니다.");
+        }
+
+        // 직원용 모바일 링크 복사 기능
+        function copyMobileLink() {
+            const gFormId = document.getElementById("gFormId").value.trim();
+            const eNameId = document.getElementById("eNameId").value.trim();
+            const eActionId = document.getElementById("eActionId").value.trim();
+            const eCompId = document.getElementById("eCompId").value.trim();
+
+            if (!gFormId || !eNameId || !eActionId || !eCompId) {
+                alert("구글 폼 ID 및 모든 Entry ID를 먼저 입력하고 저장해 주세요.");
+                return;
+            }
+
+            // 현재 도메인 기반으로 mobile.html 링크 구성
+            const baseUri = window.location.origin + window.location.pathname.replace("dashboard.html", "mobile.html");
+            const mobileUrl = `${baseUri}?formId=${encodeURIComponent(gFormId)}&nameId=${encodeURIComponent(eNameId)}&actionId=${encodeURIComponent(eActionId)}&compId=${encodeURIComponent(eCompId)}`;
+
+            // 클립보드에 복사
+            navigator.clipboard.writeText(mobileUrl).then(() => {
+                alert("직원용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!\n카카오톡 등으로 현장 직원들에게 전달해 주세요.");
+            }).catch(err => {
+                console.error("클립보드 복사 실패: ", err);
+                alert("링크 복사에 실패했습니다. 아래 주소를 직접 복사하세요:\n\n" + mobileUrl);
+            });
+        }
 
         // 주소 저장 및 데이터 최초 패치
         function saveAndLoad() {
@@ -396,7 +479,22 @@
                 const nameMatch = !searchName || (log.name && log.name.toLowerCase().includes(searchName));
                 
                 // 구분 매칭
-                const actionMatch = (filterAction === "전체") || (log.action && log.action.includes(filterAction));
+                let actionMatch = false;
+                if (filterAction === "전체") {
+                    actionMatch = true;
+                } else if (filterAction === "출근_전체") {
+                    actionMatch = log.action && log.action.includes("출근");
+                } else if (filterAction === "일반출근") {
+                    actionMatch = log.action === "출근";
+                } else if (filterAction === "현장출근") {
+                    actionMatch = log.action === "현장출근";
+                } else if (filterAction === "퇴근_전체") {
+                    actionMatch = log.action && log.action.includes("퇴근");
+                } else if (filterAction === "일반퇴근") {
+                    actionMatch = log.action === "퇴근";
+                } else if (filterAction === "현장퇴근") {
+                    actionMatch = log.action === "현장퇴근";
+                }
                 
                 // 날짜 매칭
                 let dateMatch = true;
@@ -508,9 +606,14 @@
             }
 
             filteredLogs.forEach(log => {
-                const actionColorClass = log.action === "출근" 
-                    ? "bg-green-100 text-green-800" 
-                    : "bg-gray-100 text-gray-800";
+                let actionColorClass = "bg-gray-100 text-gray-800";
+                if (log.action === "출근") {
+                    actionColorClass = "bg-green-100 text-green-800";
+                } else if (log.action === "현장출근") {
+                    actionColorClass = "bg-emerald-100 text-emerald-800 border border-emerald-300";
+                } else if (log.action === "현장퇴근") {
+                    actionColorClass = "bg-blue-100 text-blue-800 border border-blue-300";
+                }
 
                 const row = document.createElement("tr");
                 row.className = "hover:bg-gray-50 transition-colors";
