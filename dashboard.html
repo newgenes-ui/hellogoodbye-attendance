@@ -61,7 +61,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                     <div>
                         <label class="block text-[11px] font-semibold text-gray-500 mb-1">구글 폼 ID</label>
-                        <input type="text" id="gFormId" value="18uoY-OYNVBoPaB_Uq_WQwya63LaC6WqnmGZZ6OlJIgQ" placeholder="1FAIpQLSf..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="gFormId" value="1FAIpQLSfL4Q48zJw2fqqnn55Y4kbgKLJBxjzCu-LWe-UK81Ewi98AOw" placeholder="1FAIpQLSf..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-gray-500 mb-1">사원명 Entry ID</label>
@@ -228,8 +228,14 @@
                 fetchData();
             }
 
+            // 만약 이전의 잘못된 구글 폼 ID가 로컬 스토리지에 저장되어 있다면 올바른 값으로 자동 교정합니다.
+            let gId = localStorage.getItem("attendance_g_form_id");
+            if (gId === "18uoY-OYNVBoPaB_Uq_WQwya63LaC6WqnmGZZ6OlJIgQ") {
+                localStorage.setItem("attendance_g_form_id", "1FAIpQLSfL4Q48zJw2fqqnn55Y4kbgKLJBxjzCu-LWe-UK81Ewi98AOw");
+            }
+
             // 모바일 구글 폼 설정값 복원 (저장된 값이 없으면 기본 연동 값 적용)
-            document.getElementById("gFormId").value = localStorage.getItem("attendance_g_form_id") || "18uoY-OYNVBoPaB_Uq_WQwya63LaC6WqnmGZZ6OlJIgQ";
+            document.getElementById("gFormId").value = localStorage.getItem("attendance_g_form_id") || "1FAIpQLSfL4Q48zJw2fqqnn55Y4kbgKLJBxjzCu-LWe-UK81Ewi98AOw";
             document.getElementById("eNameId").value = localStorage.getItem("attendance_e_name_id") || "entry.1145603494";
             document.getElementById("eActionId").value = localStorage.getItem("attendance_e_action_id") || "entry.1747451899";
             document.getElementById("eCompId").value = localStorage.getItem("attendance_e_comp_id") || "entry.775078439";
