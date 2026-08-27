@@ -229,17 +229,57 @@
             }
         }
 
-        // CSV 문자열을 객체 배열로 변환 및 파싱
+        // 한국어 날짜 형식("2026. 8. 27 오후 12:23:30") 또는 표준 형식을 Date 객체로 변환
+        function parseKoreanDate(dateStr) {
+            if (!dateStr) return new Date();
+            
+            // "2026-08-27 12:23:30" 같은 표준 YYYY-MM-DD 형식인 경우
+            if (dateStr.includes('-')) {
+                return new Date(dateStr.replace(/-/g, '/')); // 브라우저 호환성을 위해 -를 /로 교체
+            }
+            
+            // "2026. 8. 27 오후 12:23:30" 또는 "2026. 8. 27. 오후 12:23:30" 형식 파싱
+            const cleanStr = dateStr.replace(/\./g, '').trim(); // "2026 8 27 오후 12:23:30"
+            const parts = cleanStr.split(/\s+/);
+            if (parts.length >= 5) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                
+                const ampm = parts[3]; // "오전" 또는 "오후"
+                const timeParts = parts[4].split(':');
+                let hour = parseInt(timeParts[0], 10);
+                const minute = parseInt(timeParts[1] || '0', 10);
+                const second = parseInt(timeParts[2] || '0', 10);
+                
+                if (ampm === '오후' && hour < 12) hour += 12;
+                if (ampm === '오전' && hour === 12) hour = 0;
+                
+                return new Date(year, month, day, hour, minute, second);
+            }
+            
+            return new Date(dateStr);
+        }
+
+        // Date 객체를 YYYY-MM-DD 문자열로 변환
+        function getYYYYMMDD(dateObj) {
+            if (!dateObj || isNaN(dateObj.getTime())) return "";
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // CSV 문자열을 객체 배열로 변환 및 파싱 (사원별/날짜별 하루 1회 출근(최초)/퇴근(최종) 필터링 적용)
         function parseAndStoreLogs(csvText) {
             const lines = csvText.split('\n');
-            attendanceLogs = [];
+            let rawLogs = [];
 
-            // 첫 번째 헤더행 스킵하고 1번 줄부터 파싱
+            // 1. CSV 파싱
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
 
-                // 쉼표 분할 파서 (쌍따옴표 안에 쉼표가 든 경우 고려)
                 const parts = [];
                 let inQuotes = false;
                 let currentPart = '';
@@ -257,10 +297,12 @@
                 }
                 parts.push(currentPart.trim().replace(/^"|"$/g, ''));
 
-                // 구글 시트 데이터 컬럼 맵핑: [0]=일시, [1]=사원이름, [2]=출퇴근구분, [3]=PC명
                 if (parts.length >= 3) {
-                    attendanceLogs.push({
+                    const parsedDate = parseKoreanDate(parts[0]);
+                    rawLogs.push({
                         dateTime: parts[0],
+                        dateOnly: getYYYYMMDD(parsedDate),
+                        dateObj: parsedDate,
                         name: parts[1],
                         action: parts[2],
                         computer: parts[3] || 'Mobile (현장)'
@@ -268,20 +310,49 @@
                 }
             }
 
+            // 2. 사원별+날짜별 중복 제거
+            let uniqueMap = {};
+            rawLogs.forEach(log => {
+                const actionCategory = log.action.includes("출근") ? "출근" : "퇴근";
+                const key = `${log.name}_${log.dateOnly}_${actionCategory}`;
+
+                if (!uniqueMap[key]) {
+                    uniqueMap[key] = log;
+                } else {
+                    // 동일 날짜에 출근 기록이 여러 개이면: 가장 이른 시간 선택
+                    if (actionCategory === "출근") {
+                        if (log.dateObj < uniqueMap[key].dateObj) {
+                            uniqueMap[key] = log;
+                        }
+                    }
+                    // 동일 날짜에 퇴근 기록이 여러 개이면: 가장 늦은 시간 선택
+                    else {
+                        if (log.dateObj > uniqueMap[key].dateObj) {
+                            uniqueMap[key] = log;
+                        }
+                    }
+                }
+            });
+
+            // Map 객체를 배열로 변환
+            attendanceLogs = Object.values(uniqueMap);
+
             // 최신 날짜순 정렬
-            attendanceLogs.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+            attendanceLogs.sort((a, b) => b.dateObj - a.dateObj);
         }
 
         // 지표 통계 계산
         function calculateStats() {
-            const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            // 오늘 날짜 구하기 (KST 기준 YYYY-MM-DD)
+            const kstOffset = 9 * 60 * 60 * 1000;
+            const todayStr = getYYYYMMDD(new Date(Date.now() + kstOffset));
             let todayOnCount = 0;
             let todayOffCount = 0;
 
             attendanceLogs.forEach(log => {
-                if (log.dateTime && log.dateTime.startsWith(todayStr)) {
-                    if (log.action === "출근") todayOnCount++;
-                    if (log.action === "퇴근") todayOffCount++;
+                if (log.dateOnly === todayStr) {
+                    if (log.action && log.action.includes("출근")) todayOnCount++;
+                    if (log.action && log.action.includes("퇴근")) todayOffCount++;
                 }
             });
 
@@ -301,10 +372,10 @@
                 const nameMatch = !searchName || (log.name && log.name.toLowerCase().includes(searchName));
                 
                 // 구분 매칭
-                const actionMatch = (filterAction === "전체") || (log.action === filterAction);
+                const actionMatch = (filterAction === "전체") || (log.action && log.action.includes(filterAction));
                 
                 // 날짜 매칭
-                const dateMatch = !filterDate || (log.dateTime && log.dateTime.startsWith(filterDate));
+                const dateMatch = !filterDate || (log.dateOnly === filterDate);
 
                 return nameMatch && actionMatch && dateMatch;
             });
