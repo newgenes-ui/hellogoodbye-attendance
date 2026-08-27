@@ -210,8 +210,8 @@
             const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
             try {
-                // 캐시 우회를 위해 타임스탬프 쿼리 매개변수 적용
-                const response = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
+                // 캐시 우회를 위해 타임스탬프 쿼리 및 no-store 헤더 강제 적용
+                const response = await fetch(`${csvUrl}&t=${new Date().getTime()}`, { cache: "no-store" });
                 if (!response.ok) {
                     throw new Error("스프레드시트를 읽어올 수 없습니다. 공유 뷰어 권한을 점검하십시오.");
                 }
