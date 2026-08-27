@@ -47,9 +47,9 @@ namespace AttendanceTracker
         public string entryActionId = "";
         public string entryComputerId = "";
 
-        private const string RegistryKeyPath = @"Software\AttendanceTracker";
+        private const string RegistryKeyPath = @"Software\HelloGoodbyeAttendance";
         private const string StartupKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-        private const string AppName = "AttendanceTracker";
+        private const string AppName = "HelloGoodbyeAttendance";
 
         public AttendanceAppContext()
         {
@@ -62,8 +62,18 @@ namespace AttendanceTracker
             try
             {
                 trayIcon = new NotifyIcon();
-                trayIcon.Icon = SystemIcons.Application; // 윈도우 기본 애플리케이션 아이콘 사용
-                trayIcon.Text = "출퇴근 자동 체크기 (Attendance Tracker)";
+                
+                // 실행 파일 자체에 심어진 아이콘 리소스를 추출하여 트레이 아이콘으로 사용
+                try
+                {
+                    trayIcon.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                }
+                catch
+                {
+                    trayIcon.Icon = SystemIcons.Application;
+                }
+                
+                trayIcon.Text = "헬로굿바이 (출퇴근 자동 체크기)";
                 trayIcon.Visible = true;
 
                 ContextMenu trayMenu = new ContextMenu();
@@ -307,7 +317,7 @@ namespace AttendanceTracker
             this.logDirectory = currentDir;
 
             // Form 디자인 설정 (구글 연동을 추가하기 위해 창의 세로 크기를 650으로 확장)
-            this.Text = "출퇴근 자동 체크기 설정";
+            this.Text = "헬로굿바이 설정";
             this.Size = new Size(540, 660);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
