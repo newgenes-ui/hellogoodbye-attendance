@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>출퇴근 자동 체크기 다운로드</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            max-width: 400px;
+            width: 100%;
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            background-color: #007aff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 24px;
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3);
+        }
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            fill: none;
+            stroke: white;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        h1 {
+            font-size: 22px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+        .btn-download {
+            display: inline-block;
+            background-color: #007aff;
+            color: white;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 500;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+        }
+        .btn-download:hover {
+            background-color: #0062cc;
+        }
+        .btn-download:active {
+            transform: scale(0.98);
+        }
+        .footer {
+            margin-top: 32px;
+            font-size: 12px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 파란색 동그라미에 흰색 체크마크 아이콘 디자인 -->
+        <div class="icon">
+            <svg viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+        <h1>출퇴근 자동 체크기</h1>
+        <p>Windows PC 부팅 시 자동 출근,<br>컴퓨터 종료 시 자동으로 퇴근을 체크합니다.</p>
+        
+        <!-- 클릭 시 같은 경로 상의 AttendanceTracker.exe를 다운로드 -->
+        <a href="./AttendanceTracker.exe" class="btn-download" download>프로그램 다운로드 (.exe)</a>
+        
+        <div class="footer">
+            Windows 10 / 11 전용 (초경량 12KB)
+        </div>
+    </div>
+</body>
+</html>
