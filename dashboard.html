@@ -89,7 +89,7 @@
         <!-- 3. 필터 및 검색 컨트롤바 -->
         <section class="bg-white rounded-xl border border-gray-200 p-6 mb-8 shadow-sm">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 flex-1">
                     <!-- 사원 이름 검색 -->
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">사원명 검색</label>
@@ -108,10 +108,27 @@
                             <option value="퇴근">퇴근</option>
                         </select>
                     </div>
-                    <!-- 날짜 필터 -->
+                    <!-- 날짜 필터 방식 -->
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">날짜 선택</label>
-                        <input type="date" id="filterDate" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">날짜 필터 방식</label>
+                        <select id="dateFilterType" onchange="onDateFilterTypeChange()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="전체">전체 기간</option>
+                            <option value="일별">일별 (Daily)</option>
+                            <option value="월별">월별 (Monthly)</option>
+                            <option value="년별">년별 (Yearly)</option>
+                        </select>
+                    </div>
+                    <!-- 검색 기준 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">검색 기준</label>
+                        <div id="dateInputPlaceholder" class="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400">
+                            전체 기간 검색 중
+                        </div>
+                        <input type="date" id="filterDate" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 hidden">
+                        <input type="month" id="filterMonth" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 hidden">
+                        <select id="filterYear" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 hidden">
+                            <!-- JS에서 연도 옵션을 채워넣음 -->
+                        </select>
                     </div>
                 </div>
                 <!-- 엑셀 내보내기 버튼 -->
@@ -339,6 +356,9 @@
 
             // 최신 날짜순 정렬
             attendanceLogs.sort((a, b) => b.dateObj - a.dateObj);
+            
+            // 연도 선택 필터 세팅
+            initializeYearSelect();
         }
 
         // 지표 통계 계산
@@ -365,7 +385,11 @@
         function applyFilters() {
             const searchName = document.getElementById("searchName").value.trim().toLowerCase();
             const filterAction = document.getElementById("filterAction").value;
+            
+            const dateFilterType = document.getElementById("dateFilterType").value;
             const filterDate = document.getElementById("filterDate").value; // YYYY-MM-DD
+            const filterMonth = document.getElementById("filterMonth").value; // YYYY-MM
+            const filterYear = document.getElementById("filterYear").value; // YYYY
 
             filteredLogs = attendanceLogs.filter(log => {
                 // 사원 이름 검색 매칭
@@ -375,12 +399,93 @@
                 const actionMatch = (filterAction === "전체") || (log.action && log.action.includes(filterAction));
                 
                 // 날짜 매칭
-                const dateMatch = !filterDate || (log.dateOnly === filterDate);
+                let dateMatch = true;
+                if (dateFilterType === "일별") {
+                    dateMatch = !filterDate || (log.dateOnly === filterDate);
+                } else if (dateFilterType === "월별") {
+                    dateMatch = !filterMonth || log.dateOnly.startsWith(filterMonth);
+                } else if (dateFilterType === "년별") {
+                    dateMatch = !filterYear || log.dateOnly.startsWith(filterYear + "-");
+                }
 
                 return nameMatch && actionMatch && dateMatch;
             });
 
             renderTable();
+        }
+
+        // 연도 선택 드롭다운 동적 생성
+        function initializeYearSelect() {
+            const yearSelect = document.getElementById("filterYear");
+            if (!yearSelect) return;
+            
+            // 기존 선택 유지용 값 백업
+            const prevVal = yearSelect.value;
+            yearSelect.innerHTML = "";
+
+            const currentYear = new Date().getFullYear();
+            let startYear = currentYear;
+            let endYear = currentYear;
+
+            if (attendanceLogs.length > 0) {
+                const years = attendanceLogs.map(log => log.dateObj.getFullYear());
+                startYear = Math.min(...years);
+                endYear = Math.max(...years);
+            }
+
+            const selectStart = Math.min(startYear, currentYear - 5);
+            const selectEnd = Math.max(endYear, currentYear);
+
+            for (let y = selectEnd; y >= selectStart; y--) {
+                const opt = document.createElement("option");
+                opt.value = y.toString();
+                opt.innerText = y + "년";
+                yearSelect.appendChild(opt);
+            }
+
+            // 기존에 선택되었던 값이 새로 생성된 옵션에 존재하면 복원, 없으면 현재 연도 선택
+            if (prevVal && Array.from(yearSelect.options).some(opt => opt.value === prevVal)) {
+                yearSelect.value = prevVal;
+            } else {
+                yearSelect.value = currentYear.toString();
+            }
+        }
+
+        // 날짜 필터 방식 변경 시 컨트롤 노출/숨김 처리
+        function onDateFilterTypeChange() {
+            const type = document.getElementById("dateFilterType").value;
+            const placeholder = document.getElementById("dateInputPlaceholder");
+            const dateInput = document.getElementById("filterDate");
+            const monthInput = document.getElementById("filterMonth");
+            const yearInput = document.getElementById("filterYear");
+
+            // 모두 숨기기
+            placeholder.classList.add("hidden");
+            dateInput.classList.add("hidden");
+            monthInput.classList.add("hidden");
+            yearInput.classList.add("hidden");
+
+            if (type === "전체") {
+                placeholder.classList.remove("hidden");
+            } else if (type === "일별") {
+                if (!dateInput.value) {
+                    dateInput.value = getYYYYMMDD(new Date());
+                }
+                dateInput.classList.remove("hidden");
+            } else if (type === "월별") {
+                if (!monthInput.value) {
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    monthInput.value = `${y}-${m}`;
+                }
+                monthInput.classList.remove("hidden");
+            } else if (type === "년별") {
+                initializeYearSelect();
+                yearInput.classList.remove("hidden");
+            }
+
+            applyFilters();
         }
 
         // 테이블 렌더링

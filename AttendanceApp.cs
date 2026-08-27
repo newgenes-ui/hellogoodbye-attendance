@@ -123,20 +123,36 @@ namespace AttendanceTracker
             }
         }
 
-        public async void RecordAttendance(string action)
+        public void RecordAttendance(string action, bool isShutdown = false)
         {
             string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
             // 1. 로컬 CSV 파일에 쓰기 (오프라인 상태 대비 백업)
             RecordToLocalCsv(timeStr, action);
 
-            // 2. 구글 스프레드시트(구글 폼)에 실시간 비동기 전송 (인터넷 연결 상태인 경우)
+            // 2. 구글 스프레드시트(구글 폼)에 실시간 전송 (인터넷 연결 상태인 경우)
             if (!string.IsNullOrEmpty(googleFormId) &&
                 !string.IsNullOrEmpty(entryNameId) &&
                 !string.IsNullOrEmpty(entryActionId) &&
                 !string.IsNullOrEmpty(entryComputerId))
             {
-                await SendToGoogleFormAsync(action);
+                if (isShutdown)
+                {
+                    // 컴퓨터 종료 시에는 동기적으로 대기하여 전송 완료 보장
+                    try
+                    {
+                        SendToGoogleFormAsync(action).ConfigureAwait(false).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogToFile(string.Format("종료 중 구글 전송 대기 실패: {0}", ex.Message));
+                    }
+                }
+                else
+                {
+                    // 평소(출근 등)에는 비동기 백그라운드로 처리하여 UI 프리징 방지
+                    System.Threading.Tasks.Task.Run(() => SendToGoogleFormAsync(action));
+                }
             }
         }
 
@@ -151,15 +167,77 @@ namespace AttendanceTracker
 
                 string logFilePath = Path.Combine(logDirectory, "attendance_log.csv");
                 bool isNew = !File.Exists(logFilePath);
+                string today = DateTime.Now.ToString("yyyy-MM-dd");
 
-                using (StreamWriter writer = new StreamWriter(logFilePath, true, Encoding.UTF8))
+                List<string> lines = new List<string>();
+                if (!isNew)
                 {
-                    if (isNew)
-                    {
-                        writer.WriteLine("DateTime,Action,EmployeeName,ComputerName");
-                    }
-                    writer.WriteLine(string.Format("{0},{1},{2},{3}", timeStr, action, employeeName, Environment.MachineName));
+                    lines.AddRange(File.ReadAllLines(logFilePath, Encoding.UTF8));
                 }
+
+                bool hasTodayOn = false;
+                int todayOffIndex = -1;
+
+                // 오늘 날짜의 출퇴근 기록이 이미 있는지 조회
+                for (int i = 1; i < lines.Count; i++)
+                {
+                    string[] parts = lines[i].Split(',');
+                    if (parts.Length >= 3)
+                    {
+                        string logDate = parts[0].Split(' ')[0]; // yyyy-MM-dd 추출
+                        string logAction = parts[1];
+                        string logUser = parts[2];
+
+                        if (logDate == today && logUser == employeeName)
+                        {
+                            if (logAction == "출근")
+                            {
+                                hasTodayOn = true;
+                            }
+                            else if (logAction == "퇴근")
+                            {
+                                todayOffIndex = i;
+                            }
+                        }
+                    }
+                }
+
+                string newRow = string.Format("{0},{1},{2},{3}", timeStr, action, employeeName, Environment.MachineName);
+
+                if (action == "출근")
+                {
+                    // 오늘 이미 출근이 기록되어 있다면 추가하지 않고 무시 (하루 1회만 보장)
+                    if (hasTodayOn)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        if (isNew)
+                        {
+                            lines.Add("DateTime,Action,EmployeeName,ComputerName");
+                        }
+                        lines.Add(newRow);
+                    }
+                }
+                else if (action == "퇴근")
+                {
+                    if (todayOffIndex != -1)
+                    {
+                        // 오늘 이미 퇴근 기록이 있다면 최신 퇴근 시각으로 그 행을 업데이트 (하루 1회 보장)
+                        lines[todayOffIndex] = newRow;
+                    }
+                    else
+                    {
+                        if (isNew)
+                        {
+                            lines.Add("DateTime,Action,EmployeeName,ComputerName");
+                        }
+                        lines.Add(newRow);
+                    }
+                }
+
+                File.WriteAllLines(logFilePath, lines, Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -184,7 +262,7 @@ namespace AttendanceTracker
                     var content = new FormUrlEncodedContent(postData);
                     string url = string.Format("https://docs.google.com/forms/d/e/{0}/formResponse", googleFormId);
 
-                    HttpResponseMessage response = await client.PostAsync(url, content);
+                    HttpResponseMessage response = await client.PostAsync(url, content).ConfigureAwait(false);
                     if (response.IsSuccessStatusCode)
                     {
                         LogToFile("구글 스프레드시트 실시간 전송 완료");
@@ -217,7 +295,7 @@ namespace AttendanceTracker
         private void OnSessionEnding(object sender, SessionEndingEventArgs e)
         {
             // 컴퓨터 종료/로그아웃 시 "퇴근" 처리
-            RecordAttendance("퇴근");
+            RecordAttendance("퇴근", true);
         }
 
         private void ShowSettingsForm(object sender, EventArgs e)
