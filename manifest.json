@@ -7,9 +7,9 @@
   "theme_color": "#eab308",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "https://img.icons8.com/emoji/180/sunflower-emoji.png",
+      "sizes": "180x180",
+      "type": "image/png"
     }
   ]
 }
