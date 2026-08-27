@@ -61,19 +61,19 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                     <div>
                         <label class="block text-[11px] font-semibold text-gray-500 mb-1">구글 폼 ID</label>
-                        <input type="text" id="gFormId" placeholder="1FAIpQLSf..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="gFormId" value="18uoY-OYNVBoPaB_Uq_WQwya63LaC6WqnmGZZ6OlJIgQ" placeholder="1FAIpQLSf..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-gray-500 mb-1">사원명 Entry ID</label>
-                        <input type="text" id="eNameId" placeholder="entry.123456..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="eNameId" value="entry.1145603494" placeholder="entry.123456..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-gray-500 mb-1">구분 Entry ID</label>
-                        <input type="text" id="eActionId" placeholder="entry.789012..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="eActionId" value="entry.1747451899" placeholder="entry.789012..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-gray-500 mb-1">PC명 Entry ID</label>
-                        <input type="text" id="eCompId" placeholder="entry.345678..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="eCompId" value="entry.775078439" placeholder="entry.345678..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
                 <div class="flex flex-col md:flex-row gap-3 items-end mt-2">
@@ -228,11 +228,11 @@
                 fetchData();
             }
 
-            // 모바일 구글 폼 설정값 복원
-            document.getElementById("gFormId").value = localStorage.getItem("attendance_g_form_id") || "";
-            document.getElementById("eNameId").value = localStorage.getItem("attendance_e_name_id") || "";
-            document.getElementById("eActionId").value = localStorage.getItem("attendance_e_action_id") || "";
-            document.getElementById("eCompId").value = localStorage.getItem("attendance_e_comp_id") || "";
+            // 모바일 구글 폼 설정값 복원 (저장된 값이 없으면 기본 연동 값 적용)
+            document.getElementById("gFormId").value = localStorage.getItem("attendance_g_form_id") || "18uoY-OYNVBoPaB_Uq_WQwya63LaC6WqnmGZZ6OlJIgQ";
+            document.getElementById("eNameId").value = localStorage.getItem("attendance_e_name_id") || "entry.1145603494";
+            document.getElementById("eActionId").value = localStorage.getItem("attendance_e_action_id") || "entry.1747451899";
+            document.getElementById("eCompId").value = localStorage.getItem("attendance_e_comp_id") || "entry.775078439";
         };
 
         // 모바일 구글 폼 설정값 로컬 저장
