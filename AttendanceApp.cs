@@ -12,13 +12,13 @@ namespace AttendanceTracker
     public class Program
     {
         [STAThread]
-        public static void Main()
+        public static void Main(string[] args)
         {
             try
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new AttendanceAppContext());
+                Application.Run(new AttendanceAppContext(args));
             }
             catch (Exception ex)
             {
@@ -51,8 +51,21 @@ namespace AttendanceTracker
         private const string StartupKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string AppName = "HelloGoodbyeAttendance";
 
-        public AttendanceAppContext()
+        private bool isStartupMode = false;
+
+        public AttendanceAppContext(string[] args)
         {
+            if (args != null && args.Length > 0)
+            {
+                foreach (var arg in args)
+                {
+                    if (arg.Equals("--startup", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isStartupMode = true;
+                    }
+                }
+            }
+
             LoadSettings();
 
             // 1. 앱 구동 시 즉시 자동으로 "출근" 이벤트 기록 (로컬 및 구글)
@@ -92,6 +105,12 @@ namespace AttendanceTracker
 
             // 3. 컴퓨터 종료 및 로그아웃 이벤트 구독 (.NET SystemEvents)
             SystemEvents.SessionEnding += OnSessionEnding;
+
+            // 4. 수동 실행 모드인 경우 즉시 설정 창 표시
+            if (!isStartupMode)
+            {
+                ShowSettingsForm(null, null);
+            }
         }
 
         private void LoadSettings()
@@ -331,7 +350,7 @@ namespace AttendanceTracker
                 {
                     if (enableStartup)
                     {
-                        key.SetValue(AppName, "\"" + Application.ExecutablePath + "\"");
+                        key.SetValue(AppName, "\"" + Application.ExecutablePath + "\" --startup");
                     }
                     else
                     {
