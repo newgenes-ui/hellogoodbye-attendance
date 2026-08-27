@@ -271,16 +271,24 @@
                 mobileUrl += `&employeeName=${encodeURIComponent(targetName)}`;
             }
 
+            // 클립보드에 복사할 메시지 구성 (이름이 포함되어 가시성 확보)
+            let textToCopy = mobileUrl;
+            if (targetName) {
+                textToCopy = `[${targetName} 사원 전용 모바일 출퇴근 링크]\n${mobileUrl}`;
+            } else {
+                textToCopy = `[헬로굿바이 공용 모바일 출퇴근 링크]\n${mobileUrl}`;
+            }
+
             // 클립보드에 복사
-            navigator.clipboard.writeText(mobileUrl).then(() => {
+            navigator.clipboard.writeText(textToCopy).then(() => {
                 if (targetName) {
-                    alert(`"${targetName}" 사원 전용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!\n이름 변경이 금지된 전용 링크이므로 해당 사원에게 직접 전달해 주세요.`);
+                    alert(`"${targetName}" 사원 전용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!\n카카오톡 등에 붙여넣으면 이름이 함께 표시됩니다.`);
                 } else {
-                    alert("공용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!\n이름을 직접 입력해 사용하는 링크입니다.");
+                    alert("공용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!");
                 }
             }).catch(err => {
                 console.error("클립보드 복사 실패: ", err);
-                alert("링크 복사에 실패했습니다. 아래 주소를 직접 복사하세요:\n\n" + mobileUrl);
+                alert("링크 복사에 실패했습니다. 아래 주소를 직접 복사하세요:\n\n" + textToCopy);
             });
         }
 
