@@ -76,14 +76,20 @@
                         <input type="text" id="eCompId" placeholder="entry.345678..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="saveFormSettings()" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition">
-                        설정 저장
-                    </button>
-                    <button onclick="copyMobileLink()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition flex items-center space-x-1">
-                        <i class="fa-solid fa-copy"></i>
-                        <span>직원용 모바일 출퇴근 링크 복사</span>
-                    </button>
+                <div class="flex flex-col md:flex-row gap-3 items-end mt-2">
+                    <div class="flex-1 max-w-xs w-full">
+                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">특정 사원 지정 (선택사항 - 대리 출퇴근 방지)</label>
+                        <input type="text" id="mTargetName" placeholder="예: 홍길동 (비워두면 공용 링크)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveFormSettings()" class="bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium px-4 py-2.5 rounded-lg transition">
+                            설정 저장
+                        </button>
+                        <button onclick="copyMobileLink()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2.5 rounded-lg transition flex items-center space-x-1">
+                            <i class="fa-solid fa-copy"></i>
+                            <span>직원용 모바일 출퇴근 링크 복사</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -250,6 +256,7 @@
             const eNameId = document.getElementById("eNameId").value.trim();
             const eActionId = document.getElementById("eActionId").value.trim();
             const eCompId = document.getElementById("eCompId").value.trim();
+            const targetName = document.getElementById("mTargetName").value.trim();
 
             if (!gFormId || !eNameId || !eActionId || !eCompId) {
                 alert("구글 폼 ID 및 모든 Entry ID를 먼저 입력하고 저장해 주세요.");
@@ -258,11 +265,19 @@
 
             // 현재 도메인 기반으로 mobile.html 링크 구성
             const baseUri = window.location.origin + window.location.pathname.replace("dashboard.html", "mobile.html");
-            const mobileUrl = `${baseUri}?formId=${encodeURIComponent(gFormId)}&nameId=${encodeURIComponent(eNameId)}&actionId=${encodeURIComponent(eActionId)}&compId=${encodeURIComponent(eCompId)}`;
+            let mobileUrl = `${baseUri}?formId=${encodeURIComponent(gFormId)}&nameId=${encodeURIComponent(eNameId)}&actionId=${encodeURIComponent(eActionId)}&compId=${encodeURIComponent(eCompId)}`;
+            
+            if (targetName) {
+                mobileUrl += `&employeeName=${encodeURIComponent(targetName)}`;
+            }
 
             // 클립보드에 복사
             navigator.clipboard.writeText(mobileUrl).then(() => {
-                alert("직원용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!\n카카오톡 등으로 현장 직원들에게 전달해 주세요.");
+                if (targetName) {
+                    alert(`"${targetName}" 사원 전용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!\n이름 변경이 금지된 전용 링크이므로 해당 사원에게 직접 전달해 주세요.`);
+                } else {
+                    alert("공용 모바일 출퇴근 링크가 클립보드에 복사되었습니다!\n이름을 직접 입력해 사용하는 링크입니다.");
+                }
             }).catch(err => {
                 console.error("클립보드 복사 실패: ", err);
                 alert("링크 복사에 실패했습니다. 아래 주소를 직접 복사하세요:\n\n" + mobileUrl);

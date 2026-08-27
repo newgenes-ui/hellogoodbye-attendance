@@ -57,7 +57,7 @@
                         <span class="text-xs font-semibold text-blue-500 uppercase tracking-wider block">현장 근무자</span>
                         <strong id="displayName" class="text-base text-blue-900"></strong>
                     </div>
-                    <button onclick="resetName()" class="text-xs text-blue-600 hover:text-blue-800 underline">
+                    <button id="btnResetName" onclick="resetName()" class="text-xs text-blue-600 hover:text-blue-800 underline">
                         이름 변경
                     </button>
                 </div>
@@ -100,13 +100,14 @@
             compId: ""
         };
 
-        window.onload = function() {
+         window.onload = function() {
             // 1. URL 쿼리 파라미터에서 설정값 읽기
             const params = new URLSearchParams(window.location.search);
             const pFormId = params.get("formId");
             const pNameId = params.get("nameId");
             const pActionId = params.get("actionId");
             const pCompId = params.get("compId");
+            const pEmpName = params.get("employeeName");
 
             if (pFormId && pNameId && pActionId && pCompId) {
                 // 쿼리 파라미터가 모두 있으면 localStorage에 새로 덮어쓰기 저장
@@ -114,6 +115,12 @@
                 localStorage.setItem("m_name_id", pNameId);
                 localStorage.setItem("m_action_id", pActionId);
                 localStorage.setItem("m_comp_id", pCompId);
+            }
+
+            if (pEmpName) {
+                // 사원 이름 파라미터가 들어오면 강제 세팅하고 변경 차단(Lock) 처리
+                localStorage.setItem("m_employee_name", pEmpName.trim());
+                localStorage.setItem("m_name_locked", "true");
             }
 
             // 2. localStorage에서 최종 설정값 복원
@@ -146,6 +153,10 @@
 
         // 이름 초기화 및 변경 화면으로 전환
         function resetName() {
+            if (localStorage.getItem("m_name_locked") === "true") {
+                alert("이름이 관리자에 의해 고정되어 변경할 수 없습니다.");
+                return;
+            }
             localStorage.removeItem("m_employee_name");
             showAppropriateView();
         }
@@ -156,11 +167,19 @@
             const nameArea = document.getElementById("nameSetupArea");
             const actionArea = document.getElementById("actionArea");
             const displayName = document.getElementById("displayName");
+            const btnResetName = document.getElementById("btnResetName");
 
             if (savedName) {
                 nameArea.classList.add("hidden");
                 actionArea.classList.remove("hidden");
                 displayName.innerText = savedName;
+
+                // 이름 변경 버튼 노출 차단 여부
+                if (localStorage.getItem("m_name_locked") === "true") {
+                    btnResetName.classList.add("hidden");
+                } else {
+                    btnResetName.classList.remove("hidden");
+                }
             } else {
                 nameArea.classList.remove("hidden");
                 actionArea.classList.add("hidden");
