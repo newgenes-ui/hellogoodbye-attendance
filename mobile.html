@@ -287,21 +287,25 @@
             }
 
             const uuid = localStorage.getItem("m_device_uuid") || "dev_unknown";
-            const form = document.getElementById("googleForm");
-            form.action = `https://docs.google.com/forms/d/e/${config.formId}/formResponse`;
-            form.innerHTML = ""; // 기존 입력값 초기화
+            // 구글 폼에 직접 POST 요청 전송 (CORS 제약을 우회하기 위해 mode: 'no-cors' 적용)
+            const formUrl = `https://docs.google.com/forms/d/e/${config.formId}/formResponse`;
+            const formData = new URLSearchParams();
+            formData.append(config.nameId, name);
+            formData.append(config.actionId, action);
+            formData.append(config.compId, `Mobile (현장) - ${uuid}`);
 
-            // 구글 폼 필드 구성
-            const nameField = createHiddenInput(config.nameId, name);
-            const actionField = createHiddenInput(config.actionId, action);
-            const compField = createHiddenInput(config.compId, `Mobile (현장) - ${uuid}`);
-
-            form.appendChild(nameField);
-            form.appendChild(actionField);
-            form.appendChild(compField);
-
-            // 폼 제출
-            form.submit();
+            try {
+                fetch(formUrl, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                });
+            } catch (e) {
+                console.error("구글 폼 전송 실패: ", e);
+            }
 
             // 전송 완료 토스트 노출
             const toast = document.getElementById("toast");
