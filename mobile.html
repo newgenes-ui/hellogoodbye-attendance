@@ -197,14 +197,17 @@
                 localStorage.setItem("m_device_uuid", deviceUuid);
             }
 
-            // 만약 잘못된 이전 구글 폼 ID가 모바일 로컬 스토리지에 저장되어 있다면 올바른 값으로 자동 교정합니다.
+            // 만약 잘못된 이전 구글 폼 ID가 모바일 로컬 스토리지에 저장되어 있다면 올바른 값으로 자동 교정합니다. (1FAIpQLS로 시작하지 않는 경우 모두 교정)
             let savedFormId = localStorage.getItem("m_form_id");
-            if (savedFormId === "18uoY-OYNVBoPaB_Uq_WQwya63LaC6WqnmGZZ6OlJIgQ") {
+            if (savedFormId && !savedFormId.startsWith("1FAIpQLS")) {
                 localStorage.setItem("m_form_id", "1FAIpQLSfL4Q48zJw2fqqnn55Y4kbgKLJBxjzCu-LWe-UK81Ewi98AOw");
             }
 
             // 2. localStorage에서 최종 설정값 복원
-            config.formId = localStorage.getItem("m_form_id") || "1FAIpQLSfL4Q48zJw2fqqnn55Y4kbgKLJBxjzCu-LWe-UK81Ewi98AOw";
+            config.formId = localStorage.getItem("m_form_id");
+            if (!config.formId || !config.formId.startsWith("1FAIpQLS")) {
+                config.formId = "1FAIpQLSfL4Q48zJw2fqqnn55Y4kbgKLJBxjzCu-LWe-UK81Ewi98AOw";
+            }
             config.nameId = localStorage.getItem("m_name_id") || "entry.1145603494";
             config.actionId = localStorage.getItem("m_action_id") || "entry.1747451899";
             config.compId = localStorage.getItem("m_comp_id") || "entry.775078439";
@@ -342,7 +345,22 @@
                     const line = lines[i].trim();
                     if (!line) continue;
                     
-                    const parts = line.split(",").map(p => p.replace(/^"|"$/g, "").trim());
+                    let currentPart = '';
+                    let inQuotes = false;
+                    const parts = [];
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j];
+                        if (char === '"') {
+                            inQuotes = !inQuotes;
+                        } else if (char === ',' && !inQuotes) {
+                            parts.push(currentPart.trim().replace(/^"|"$/g, ''));
+                            currentPart = '';
+                        } else {
+                            currentPart += char;
+                        }
+                    }
+                    parts.push(currentPart.trim().replace(/^"|"$/g, ''));
+
                     if (parts.length >= 4) {
                         const logName = parts[1]; // parts[1]이 사원명
                         const logDevice = parts[3]; // parts[3]이 디바이스 기기명
