@@ -269,8 +269,8 @@
                 return;
             }
 
-            // 현재 도메인 기반으로 mobile.html 링크 구성
-            const baseUri = window.location.origin + window.location.pathname.replace("dashboard.html", "mobile.html");
+            // 현재 도메인 기반으로 m.html 링크 구성
+            const baseUri = window.location.origin + window.location.pathname.replace("dashboard.html", "m.html");
             const sheetUrl = localStorage.getItem("attendance_sheet_url") || "";
             let mobileUrl = `${baseUri}?formId=${encodeURIComponent(gFormId)}&nameId=${encodeURIComponent(eNameId)}&actionId=${encodeURIComponent(eActionId)}&compId=${encodeURIComponent(eCompId)}`;
             
