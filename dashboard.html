@@ -265,8 +265,12 @@
 
             // 현재 도메인 기반으로 mobile.html 링크 구성
             const baseUri = window.location.origin + window.location.pathname.replace("dashboard.html", "mobile.html");
+            const sheetUrl = localStorage.getItem("attendance_sheet_url") || "";
             let mobileUrl = `${baseUri}?formId=${encodeURIComponent(gFormId)}&nameId=${encodeURIComponent(eNameId)}&actionId=${encodeURIComponent(eActionId)}&compId=${encodeURIComponent(eCompId)}`;
             
+            if (sheetUrl) {
+                mobileUrl += `&sheetUrl=${encodeURIComponent(sheetUrl)}`;
+            }
             if (targetName) {
                 mobileUrl += `&employeeName=${encodeURIComponent(targetName)}`;
             }
@@ -651,7 +655,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <span class="${log.computer.includes('Mobile') ? 'text-blue-600 font-medium' : 'text-gray-500'}">
                             ${log.computer.includes('Mobile') ? '<i class="fa-solid fa-mobile-screen-button mr-1"></i>' : '<i class="fa-solid fa-laptop-code mr-1"></i>'}
-                            ${log.computer}
+                            ${log.computer.startsWith('Mobile (현장)') ? 'Mobile (현장)' : log.computer}
                         </span>
                     </td>
                 `;

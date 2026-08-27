@@ -152,6 +152,7 @@
             const pActionId = params.get("actionId");
             const pCompId = params.get("compId");
             const pEmpName = params.get("employeeName");
+            const pSheetUrl = params.get("sheetUrl");
 
             if (pFormId && pNameId && pActionId && pCompId) {
                 // 쿼리 파라미터가 모두 있으면 localStorage에 새로 덮어쓰기 저장
@@ -159,12 +160,22 @@
                 localStorage.setItem("m_name_id", pNameId);
                 localStorage.setItem("m_action_id", pActionId);
                 localStorage.setItem("m_comp_id", pCompId);
+                if (pSheetUrl) {
+                    localStorage.setItem("m_sheet_url", pSheetUrl);
+                }
             }
 
             if (pEmpName) {
                 // 사원 이름 파라미터가 들어오면 강제 세팅하고 변경 차단(Lock) 처리
                 localStorage.setItem("m_employee_name", pEmpName.trim());
                 localStorage.setItem("m_name_locked", "true");
+            }
+
+            // 고유 기기 식별 코드(UUID) 미존재 시 생성 및 저장
+            let deviceUuid = localStorage.getItem("m_device_uuid");
+            if (!deviceUuid) {
+                deviceUuid = "dev_" + Math.random().toString(36).substring(2, 10);
+                localStorage.setItem("m_device_uuid", deviceUuid);
             }
 
             // 2. localStorage에서 최종 설정값 복원
@@ -233,7 +244,7 @@
         }
 
         // 구글 폼에 근태 제출 실행
-        function submitAttendance(action) {
+        async function submitAttendance(action) {
             const name = localStorage.getItem("m_employee_name");
             if (!name) {
                 alert("등록된 이름이 없습니다. 다시 등록해 주세요.");
@@ -241,6 +252,13 @@
                 return;
             }
 
+            // 1인 1기기 중복 방지 검증 실행
+            const isAllowed = await verifyDeviceLock();
+            if (!isAllowed) {
+                return;
+            }
+
+            const uuid = localStorage.getItem("m_device_uuid") || "dev_unknown";
             const form = document.getElementById("googleForm");
             form.action = `https://docs.google.com/forms/d/e/${config.formId}/formResponse`;
             form.innerHTML = ""; // 기존 입력값 초기화
@@ -248,7 +266,7 @@
             // 구글 폼 필드 구성
             const nameField = createHiddenInput(config.nameId, name);
             const actionField = createHiddenInput(config.actionId, action);
-            const compField = createHiddenInput(config.compId, "Mobile (현장)");
+            const compField = createHiddenInput(config.compId, `Mobile (현장) - ${uuid}`);
 
             form.appendChild(nameField);
             form.appendChild(actionField);
@@ -267,6 +285,64 @@
             setTimeout(() => {
                 toast.classList.add("hidden");
             }, 4000);
+        }
+
+        // 1인 1스마트폰 기기 고정 검증 로직
+        async function verifyDeviceLock() {
+            const sheetUrl = localStorage.getItem("m_sheet_url");
+            const name = localStorage.getItem("m_employee_name");
+            const myUuid = localStorage.getItem("m_device_uuid");
+
+            if (!sheetUrl || !name || !myUuid) return true; // 설정이나 이름 정보가 없으면 검증 패스
+
+            try {
+                // 구글 시트 URL을 CSV 형식으로 가공
+                let csvUrl = sheetUrl;
+                if (csvUrl.includes("/edit")) {
+                    csvUrl = csvUrl.split("/edit")[0] + "/export?format=csv";
+                } else if (!csvUrl.includes("output=csv")) {
+                    csvUrl = csvUrl + (csvUrl.includes("?") ? "&" : "?") + "pub?output=csv";
+                }
+
+                // 캐시 방지 파라미터 추가로 최신 구글 시트 조회 유도
+                csvUrl = csvUrl + (csvUrl.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+                const response = await fetch(csvUrl);
+                const text = await response.text();
+                
+                const lines = text.split("\n");
+                let registeredUuid = null;
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const parts = line.split(",").map(p => p.replace(/^"|"$/g, "").trim());
+                    if (parts.length >= 4) {
+                        const logName = parts[1]; // parts[1]이 사원명
+                        const logDevice = parts[3]; // parts[3]이 디바이스 기기명
+
+                        if (logName === name && logDevice && logDevice.startsWith("Mobile (현장) -")) {
+                            const match = logDevice.match(/Mobile \(현장\) - (dev_[a-z0-9]+)/);
+                            if (match) {
+                                registeredUuid = match[1];
+                                // 최초 기입된 기기 ID를 기기 고정 기준으로 설정
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (registeredUuid && registeredUuid !== myUuid) {
+                    alert(`[기기 등록 제한 경고]\n\n해당 사원(${name})은 이미 다른 스마트폰에 등록되어 있습니다.\n\n대리 출퇴근 부정 방지를 위해 1대의 기기에서만 출퇴근 기록이 가능합니다.\n기기를 교체해야 하는 경우 관리자에게 문의하여 스프레드시트의 이전 모바일 기록을 정리해 달라고 요청하세요.`);
+                    return false;
+                }
+                return true;
+            } catch (err) {
+                console.error("기기 보안 검증 오류: ", err);
+                // 네트워크 에러 시 임시 전송 허용
+                return true;
+            }
         }
 
         // 바탕화면 추가 가이드 모달 제어
