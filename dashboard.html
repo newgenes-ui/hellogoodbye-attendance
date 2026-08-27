@@ -204,8 +204,10 @@
 
             statusDiv.innerHTML = "<span class='text-blue-500'><i class='fa-solid fa-spinner fa-spin mr-1'></i> 구글 시트 데이터를 실시간 수집하는 중...</span>";
 
-            // 구글 시트 CSV 내보내기 주소로 연결 (gid=0은 첫 번째 탭 고정)
-            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+            // URL에 gid가 있으면 추출하고, 없으면 기본값 0을 적용 (구글 설문 연동 탭의 고유 gid 대응)
+            const gidMatch = urlInput.match(/gid=([0-9]+)/);
+            const gid = gidMatch ? gidMatch[1] : "0";
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
             try {
                 // 캐시 우회를 위해 타임스탬프 쿼리 매개변수 적용
