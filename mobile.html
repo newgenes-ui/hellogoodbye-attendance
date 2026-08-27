@@ -185,10 +185,10 @@
             }
 
             // 2. localStorage에서 최종 설정값 복원
-            config.formId = localStorage.getItem("m_form_id");
-            config.nameId = localStorage.getItem("m_name_id");
-            config.actionId = localStorage.getItem("m_action_id");
-            config.compId = localStorage.getItem("m_comp_id");
+            config.formId = localStorage.getItem("m_form_id") || "1FAIpQLSfL4Q48zJw2fqqnn55Y4kbgKLJBxjzCu-LWe-UK81Ewi98AOw";
+            config.nameId = localStorage.getItem("m_name_id") || "entry.1145603494";
+            config.actionId = localStorage.getItem("m_action_id") || "entry.1747451899";
+            config.compId = localStorage.getItem("m_comp_id") || "entry.775078439";
 
             // 설정 정보가 누락된 경우 경고 문구 표시
             if (!config.formId || !config.nameId || !config.actionId || !config.compId) {
