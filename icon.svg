@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Background -->
+  <rect width="120" height="120" rx="28" fill="#FEF08A"/>
+  
+  <!-- Flower Center -->
+  <circle cx="60" cy="60" r="18" fill="#713F12" stroke="#451A03" stroke-width="2"/>
+  
+  <!-- Flower Seeds Texture -->
+  <circle cx="56" cy="56" r="1.5" fill="#FACC15"/>
+  <circle cx="64" cy="56" r="1.5" fill="#FACC15"/>
+  <circle cx="60" cy="64" r="1.5" fill="#FACC15"/>
+  <circle cx="55" cy="62" r="1.5" fill="#FACC15"/>
+  <circle cx="65" cy="61" r="1.5" fill="#FACC15"/>
+
+  <!-- Petals -->
+  <!-- Top/Bottom/Left/Right -->
+  <path d="M60 12 C54 30 66 30 60 12 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+  <path d="M60 108 C54 90 66 90 60 108 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+  <path d="M12 60 C30 54 30 66 12 60 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+  <path d="M108 60 C90 54 90 66 108 60 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+  
+  <!-- Diagonals -->
+  <path d="M26 26 C40 38 48 30 26 26 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+  <path d="M94 94 C80 82 72 90 94 94 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+  <path d="M26 94 C38 80 30 72 26 94 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+  <path d="M94 26 C82 40 90 48 94 26 Z" fill="#EAB308" stroke="#CA8A04" stroke-width="1.5"/>
+
+  <!-- Intermediate Petals -->
+  <path d="M60 12 C57 30 72 25 78 18 Z" fill="#FACC15"/>
+  <path d="M60 12 C63 30 48 25 42 18 Z" fill="#FACC15"/>
+  <path d="M60 108 C57 90 72 95 78 102 Z" fill="#FACC15"/>
+  <path d="M60 108 C63 90 48 95 42 102 Z" fill="#FACC15"/>
+  <path d="M12 60 C30 57 25 72 18 78 Z" fill="#FACC15"/>
+  <path d="M12 60 C30 63 25 48 18 42 Z" fill="#FACC15"/>
+  <path d="M108 60 C90 57 95 72 102 78 Z" fill="#FACC15"/>
+  <path d="M108 60 C90 63 95 48 102 42 Z" fill="#FACC15"/>
+</svg>
