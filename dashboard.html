@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>헬로굿바이 - 실시간 출퇴근 관리 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 아이콘 CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+
+    <!-- 상단 네비게이션 헤더 -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center shadow-sm">
+                    <span class="text-xl">🌻</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900 leading-tight">헬로굿바이</h1>
+                    <p class="text-xs text-gray-500">실시간 출퇴근 관리 대시보드</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-500 hidden sm:inline"><i class="fa-regular fa-clock mr-1"></i> 실시간 상태 연결됨</span>
+                <button onclick="fetchData()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition shadow-sm">
+                    <i class="fa-solid fa-rotate mr-1"></i> 새로고침
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- 1. 구글 스프레드시트 주소 설정 카드 -->
+        <section class="bg-white rounded-xl border border-gray-200 p-6 mb-8 shadow-sm">
+            <h2 class="text-md font-semibold text-gray-900 mb-3"><i class="fa-brands fa-google-drive text-green-600 mr-1"></i> 구글 스프레드시트 데이터 연동 설정</h2>
+            <p class="text-sm text-gray-500 mb-4">
+                구글 설문지와 연동된 스프레드시트 주소를 입력하세요. (시트는 <b>"링크가 있는 모든 사용자에게 뷰어 권한 허용"</b> 상태여야 합니다.)
+            </p>
+            <div class="flex flex-col md:flex-row gap-3">
+                <input type="text" id="sheetUrl" placeholder="구글 스프레드시트 URL 전체 주소 붙여넣기 (예: https://docs.google.com/spreadsheets/d/XXXXXXXX/edit...)" 
+                       class="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="saveAndLoad()" class="bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium px-6 py-2.5 rounded-lg transition">
+                    연동 및 불러오기
+                </button>
+            </div>
+            <div id="connectionStatus" class="mt-3 text-xs text-gray-500"></div>
+        </section>
+
+        <!-- 2. 통계 지표 카드 영역 -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">오늘 출근 사원</p>
+                    <h3 id="statTodayOn" class="text-3xl font-bold text-gray-900 mt-1">0명</h3>
+                </div>
+                <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-600">
+                    <i class="fa-solid fa-door-open text-xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">오늘 퇴근 사원</p>
+                    <h3 id="statTodayOff" class="text-3xl font-bold text-gray-900 mt-1">0명</h3>
+                </div>
+                <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600">
+                    <i class="fa-solid fa-door-closed text-xl"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">전체 출퇴근 기록 수</p>
+                    <h3 id="statTotal" class="text-3xl font-bold text-gray-900 mt-1">0건</h3>
+                </div>
+                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                    <i class="fa-solid fa-database text-xl"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 필터 및 검색 컨트롤바 -->
+        <section class="bg-white rounded-xl border border-gray-200 p-6 mb-8 shadow-sm">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                    <!-- 사원 이름 검색 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">사원명 검색</label>
+                        <div class="relative">
+                            <input type="text" id="searchName" oninput="applyFilters()" placeholder="사원명 입력..." 
+                                   class="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-xs"></i>
+                        </div>
+                    </div>
+                    <!-- 구분 필터 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">구분</label>
+                        <select id="filterAction" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="전체">전체</option>
+                            <option value="출근">출근</option>
+                            <option value="퇴근">퇴근</option>
+                        </select>
+                    </div>
+                    <!-- 날짜 필터 -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">날짜 선택</label>
+                        <input type="date" id="filterDate" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <!-- 엑셀 내보내기 버튼 -->
+                <div class="flex items-end">
+                    <button onclick="downloadFilteredLogs()" class="w-full lg:w-auto bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition shadow-sm flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>필터링된 사원 기록 엑셀 다운로드</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. 데이터 그리드 (테이블) -->
+        <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">일시 (DateTime)</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">구분 (Action)</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">사원명 (User)</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">PC명 / 기기 (Device)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-400">
+                                <i class="fa-solid fa-circle-info mr-1"></i> 데이터가 없습니다. 상단 연동 주소를 등록해 주세요.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- 하단 페이징/건수 통계 -->
+            <div class="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div class="text-xs text-gray-500">
+                    표시된 기록 수: <span id="displayedCount" class="font-bold text-gray-700">0</span>건
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // 전역 데이터 저장소
+        let attendanceLogs = [];
+        let filteredLogs = [];
+
+        // 앱 시작 시 저장된 구글 시트 주소 로드
+        window.onload = function() {
+            const savedUrl = localStorage.getItem("attendance_sheet_url");
+            if (savedUrl) {
+                document.getElementById("sheetUrl").value = savedUrl;
+                fetchData();
+            }
+        };
+
+        // 주소 저장 및 데이터 최초 패치
+        function saveAndLoad() {
+            const url = document.getElementById("sheetUrl").value.trim();
+            if (!url) {
+                alert("스프레드시트 주소를 입력해 주세요.");
+                return;
+            }
+            localStorage.setItem("attendance_sheet_url", url);
+            fetchData();
+        }
+
+        // 구글 시트 ID 추출 함수
+        function extractSheetId(url) {
+            const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            return match ? match[1] : null;
+        }
+
+        // 구글 시트에서 실시간 CSV 가져오기
+        async function fetchData() {
+            const urlInput = document.getElementById("sheetUrl").value.trim();
+            const statusDiv = document.getElementById("connectionStatus");
+            
+            if (!urlInput) {
+                statusDiv.innerHTML = "<span class='text-red-500'>* 연동 주소가 등록되어 있지 않습니다.</span>";
+                return;
+            }
+
+            const sheetId = extractSheetId(urlInput);
+            if (!sheetId) {
+                statusDiv.innerHTML = "<span class='text-red-500'>* 올바른 구글 스프레드시트 주소 형식이 아닙니다.</span>";
+                return;
+            }
+
+            statusDiv.innerHTML = "<span class='text-blue-500'><i class='fa-solid fa-spinner fa-spin mr-1'></i> 구글 시트 데이터를 실시간 수집하는 중...</span>";
+
+            // 구글 시트 CSV 내보내기 주소로 연결 (gid=0은 첫 번째 탭 고정)
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+
+            try {
+                // 캐시 우회를 위해 타임스탬프 쿼리 매개변수 적용
+                const response = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
+                if (!response.ok) {
+                    throw new Error("스프레드시트를 읽어올 수 없습니다. 공유 뷰어 권한을 점검하십시오.");
+                }
+
+                const csvText = await response.text();
+                parseAndStoreLogs(csvText);
+
+                statusDiv.innerHTML = "<span class='text-green-600'><i class='fa-solid fa-circle-check mr-1'></i> 연동 완료 (동기화 일시: " + new Date().toLocaleTimeString() + ")</span>";
+                calculateStats();
+                applyFilters();
+            }
+            catch (error) {
+                statusDiv.innerHTML = `<span class='text-red-500'>* 오류 발생: ${error.message}</span>`;
+                console.error(error);
+            }
+        }
+
+        // CSV 문자열을 객체 배열로 변환 및 파싱
+        function parseAndStoreLogs(csvText) {
+            const lines = csvText.split('\n');
+            attendanceLogs = [];
+
+            // 첫 번째 헤더행 스킵하고 1번 줄부터 파싱
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                // 쉼표 분할 파서 (쌍따옴표 안에 쉼표가 든 경우 고려)
+                const parts = [];
+                let inQuotes = false;
+                let currentPart = '';
+
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        parts.push(currentPart.trim().replace(/^"|"$/g, ''));
+                        currentPart = '';
+                    } else {
+                        currentPart += char;
+                    }
+                }
+                parts.push(currentPart.trim().replace(/^"|"$/g, ''));
+
+                // 구글 시트 데이터 컬럼 맵핑: [0]=일시, [1]=사원이름, [2]=출퇴근구분, [3]=PC명
+                if (parts.length >= 3) {
+                    attendanceLogs.push({
+                        dateTime: parts[0],
+                        name: parts[1],
+                        action: parts[2],
+                        computer: parts[3] || 'Mobile (현장)'
+                    });
+                }
+            }
+
+            // 최신 날짜순 정렬
+            attendanceLogs.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+        }
+
+        // 지표 통계 계산
+        function calculateStats() {
+            const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            let todayOnCount = 0;
+            let todayOffCount = 0;
+
+            attendanceLogs.forEach(log => {
+                if (log.dateTime && log.dateTime.startsWith(todayStr)) {
+                    if (log.action === "출근") todayOnCount++;
+                    if (log.action === "퇴근") todayOffCount++;
+                }
+            });
+
+            document.getElementById("statTodayOn").innerText = todayOnCount + "명";
+            document.getElementById("statTodayOff").innerText = todayOffCount + "명";
+            document.getElementById("statTotal").innerText = attendanceLogs.length + "건";
+        }
+
+        // 필터링 적용 로직
+        function applyFilters() {
+            const searchName = document.getElementById("searchName").value.trim().toLowerCase();
+            const filterAction = document.getElementById("filterAction").value;
+            const filterDate = document.getElementById("filterDate").value; // YYYY-MM-DD
+
+            filteredLogs = attendanceLogs.filter(log => {
+                // 사원 이름 검색 매칭
+                const nameMatch = !searchName || (log.name && log.name.toLowerCase().includes(searchName));
+                
+                // 구분 매칭
+                const actionMatch = (filterAction === "전체") || (log.action === filterAction);
+                
+                // 날짜 매칭
+                const dateMatch = !filterDate || (log.dateTime && log.dateTime.startsWith(filterDate));
+
+                return nameMatch && actionMatch && dateMatch;
+            });
+
+            renderTable();
+        }
+
+        // 테이블 렌더링
+        function renderTable() {
+            const tbody = document.getElementById("logTableBody");
+            const displayedCountSpan = document.getElementById("displayedCount");
+            
+            tbody.innerHTML = "";
+            displayedCountSpan.innerText = filteredLogs.length;
+
+            if (filteredLogs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-400">
+                            <i class="fa-solid fa-magnifying-glass mr-1"></i> 필터에 부합하는 출퇴근 기록이 없습니다.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filteredLogs.forEach(log => {
+                const actionColorClass = log.action === "출근" 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-gray-100 text-gray-800";
+
+                const row = document.createElement("tr");
+                row.className = "hover:bg-gray-50 transition-colors";
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${log.dateTime}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${actionColorClass}">
+                            ${log.action}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">${log.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="${log.computer.includes('Mobile') ? 'text-blue-600 font-medium' : 'text-gray-500'}">
+                            ${log.computer.includes('Mobile') ? '<i class="fa-solid fa-mobile-screen-button mr-1"></i>' : '<i class="fa-solid fa-laptop-code mr-1"></i>'}
+                            ${log.computer}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 필터링된 기록을 엑셀(CSV) 다운로드 수행
+        function downloadFilteredLogs() {
+            if (filteredLogs.length === 0) {
+                alert("다운로드할 데이터가 없습니다.");
+                return;
+            }
+
+            // UTF-8 BOM 인코딩을 추가하여 Excel에서 한글 깨짐 원천 방지
+            let csvContent = "\uFEFF";
+            csvContent += "일시 (DateTime),구분 (Action),사원명 (User),PC/기기명 (Device)\n";
+
+            filteredLogs.forEach(log => {
+                // 데이터 내부에 쉼표가 있을 경우 쌍따옴표로 안전하게 래핑
+                const safeName = `"${log.name.replace(/"/g, '""')}"`;
+                const safeComputer = `"${log.computer.replace(/"/g, '""')}"`;
+                csvContent += `${log.dateTime},${log.action},${safeName},${safeComputer}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            
+            // 파일명에 검색한 사원명 및 날짜 기입
+            const searchName = document.getElementById("searchName").value.trim() || "전체";
+            const dateSuffix = new Date().toISOString().slice(0, 10);
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", `출퇴근기록_${searchName}_${dateSuffix}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
