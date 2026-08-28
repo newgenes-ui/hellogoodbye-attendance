@@ -292,8 +292,10 @@
             form.innerHTML = ""; // 기존 입력값 초기화
 
             // 구글 폼 필드 구성
+            // 구글 설문지의 구분 라디오 버튼 옵션("출근", "퇴근")과 일치하도록 전송 값을 변환하여 검증 오류를 방지합니다.
+            const submitAction = (action === "현장출근") ? "출근" : (action === "현장퇴근" ? "퇴근" : action);
             const nameField = createHiddenInput(config.nameId, name);
-            const actionField = createHiddenInput(config.actionId, action);
+            const actionField = createHiddenInput(config.actionId, submitAction);
             const compField = createHiddenInput(config.compId, `Mobile (현장) - ${uuid}`);
 
             form.appendChild(nameField);

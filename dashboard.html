@@ -94,36 +94,7 @@
             </div>
         </section>
 
-        <!-- 2. 통계 지표 카드 영역 -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 font-medium">오늘 출근 사원</p>
-                    <h3 id="statTodayOn" class="text-3xl font-bold text-gray-900 mt-1">0명</h3>
-                </div>
-                <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-600">
-                    <i class="fa-solid fa-door-open text-xl"></i>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 font-medium">오늘 퇴근 사원</p>
-                    <h3 id="statTodayOff" class="text-3xl font-bold text-gray-900 mt-1">0명</h3>
-                </div>
-                <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600">
-                    <i class="fa-solid fa-door-closed text-xl"></i>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 font-medium">전체 출퇴근 기록 수</p>
-                    <h3 id="statTotal" class="text-3xl font-bold text-gray-900 mt-1">0건</h3>
-                </div>
-                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
-                    <i class="fa-solid fa-database text-xl"></i>
-                </div>
-            </div>
-        </section>
+
 
         <!-- 3. 필터 및 검색 컨트롤바 -->
         <section class="bg-white rounded-xl border border-gray-200 p-6 mb-8 shadow-sm">
@@ -432,13 +403,23 @@
 
                 if (parts.length >= 3) {
                     const parsedDate = parseKoreanDate(parts[0]);
+                    const rawAction = parts[2];
+                    const comp = parts[3] || 'Mobile (현장)';
+                    
+                    // 모바일(현장) 기기에서 기록한 '출근' 또는 '퇴근'은 대시보드 분류 상 '현장출근' 및 '현장퇴근'으로 보정합니다.
+                    let mappedAction = rawAction;
+                    if (comp && (comp.includes("Mobile") || comp.includes("현장"))) {
+                        if (rawAction === "출근") mappedAction = "현장출근";
+                        else if (rawAction === "퇴근") mappedAction = "현장퇴근";
+                    }
+
                     rawLogs.push({
                         dateTime: parts[0],
                         dateOnly: getYYYYMMDD(parsedDate),
                         dateObj: parsedDate,
                         name: parts[1],
-                        action: parts[2],
-                        computer: parts[3] || 'Mobile (현장)'
+                        action: mappedAction,
+                        computer: comp
                     });
                 }
             }
@@ -492,9 +473,13 @@
                 }
             });
 
-            document.getElementById("statTodayOn").innerText = todayOnCount + "명";
-            document.getElementById("statTodayOff").innerText = todayOffCount + "명";
-            document.getElementById("statTotal").innerText = attendanceLogs.length + "건";
+            const statTodayOn = document.getElementById("statTodayOn");
+            const statTodayOff = document.getElementById("statTodayOff");
+            const statTotal = document.getElementById("statTotal");
+
+            if (statTodayOn) statTodayOn.innerText = todayOnCount + "명";
+            if (statTodayOff) statTodayOff.innerText = todayOffCount + "명";
+            if (statTotal) statTotal.innerText = attendanceLogs.length + "건";
         }
 
         // 필터링 적용 로직
