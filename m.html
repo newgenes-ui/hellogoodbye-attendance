@@ -146,7 +146,7 @@
 
     <!-- CORS 방지용 숨겨진 iframe과 전송용 form -->
     <iframe name="invisible-iframe" id="invisible-iframe" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></iframe>
-    <form id="googleForm" method="POST" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></form>
+    <form id="googleForm" method="POST" target="invisible-iframe" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></form>
 
     <script>
         // 전역 설정값 객체
@@ -287,23 +287,38 @@
             }
 
             const uuid = localStorage.getItem("m_device_uuid") || "dev_unknown";
-            const form = document.getElementById("googleForm");
-            form.action = `https://docs.google.com/forms/d/e/${config.formId}/formResponse`;
-            form.innerHTML = ""; // 기존 입력값 초기화
-
             // 구글 폼 필드 구성
             // 구글 설문지의 구분 라디오 버튼 옵션("출근", "퇴근")과 일치하도록 전송 값을 변환하여 검증 오류를 방지합니다.
             const submitAction = (action === "현장출근") ? "출근" : (action === "현장퇴근" ? "퇴근" : action);
-            const nameField = createHiddenInput(config.nameId, name);
-            const actionField = createHiddenInput(config.actionId, submitAction);
-            const compField = createHiddenInput(config.compId, `Mobile (현장) - ${uuid}`);
+            const postUrl = `https://docs.google.com/forms/d/e/${config.formId}/formResponse`;
 
-            form.appendChild(nameField);
-            form.appendChild(actionField);
-            form.appendChild(compField);
+            const formData = new URLSearchParams();
+            formData.append(config.nameId, name);
+            formData.append(config.actionId, submitAction);
+            formData.append(config.compId, `Mobile (현장) - ${uuid}`);
 
-            // 폼 제출
-            form.submit();
+            try {
+                // 카카오톡/모바일 브라우저에서 화면 전환이 발생하지 않도록 백그라운드 비동기 fetch(no-cors) 전송
+                await fetch(postUrl, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                });
+            } catch (err) {
+                console.warn("비동기 fetch 전송 실패 시 폼 폴백 실행:", err);
+                try {
+                    const form = document.getElementById("googleForm");
+                    form.action = postUrl;
+                    form.innerHTML = "";
+                    form.appendChild(createHiddenInput(config.nameId, name));
+                    form.appendChild(createHiddenInput(config.actionId, submitAction));
+                    form.appendChild(createHiddenInput(config.compId, `Mobile (현장) - ${uuid}`));
+                    form.submit();
+                } catch (e) {}
+            }
 
             // 전송 완료 토스트 노출
             const toast = document.getElementById("toast");
